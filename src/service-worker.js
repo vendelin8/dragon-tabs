@@ -109,9 +109,9 @@ function load() {
 }
 
 function close() {
-	chrome.tabs.remove(rows.filter((e) => r.id && r.id != active.id).map((r) => {
-		const tabId = r.id;
-		delete r.id;
+	chrome.tabs.remove(rows.filter((row) => row.id && row.id != active.id).map((row) => {
+		const tabId = row.id;
+		delete row.id;
 		setStorage();
 		return tabId;
 	}));
