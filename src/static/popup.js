@@ -18,9 +18,9 @@ port.onMessage.addListener(function(msg) {
 		createElement('div', 'move', rowDiv, {'textContent': '☰'});
 		createElement('img', 'fav', rowDiv, {'src': row.favIconUrl || icon});
 		if (tabId) {
-			createElement('a', 'link', rowDiv, {'href': url, 'textContent': row.title || url, 'target': '_blank'});
-		} else {
 			createElement('span', 'link', rowDiv, {'textContent': row.title || url});
+		} else {
+			createElement('a', 'link', rowDiv, {'href': url, 'textContent': row.title || url, 'target': '_blank'});
 		}
 
 		if (!isActive && !tabId) {
