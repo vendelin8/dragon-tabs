@@ -27,4 +27,8 @@ When you open the extension popup by clicking on the dragon, you get 2 buttons o
 Known bugs:
 * When loading the GUI, merging stored urls with open browser tabs sometimes stores duplicates
 
+### Screenshots
+![Loaded list](screenshots/load.png)
+![Drag row](screenshots/drag.png)
+
 Feel free to create a PR or an issue
