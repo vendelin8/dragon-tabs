@@ -3,6 +3,8 @@ Save and restore all tabs from toolbar popup!
 
 Inspired by [Save Tabs](https://mybrowseraddon.com/save-tabs.html), completely rewritten with slightly different functionality.
 
+![Logo](logo.png)
+
 ## Purpose
 If you're always out of memory and CPU because of too many open browser tabs, the best is to save them with a couple of clicks for read later.
 
