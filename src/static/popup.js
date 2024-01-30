@@ -1,4 +1,4 @@
-//~ const log = console.log;
+// const log = console.log;
 const icon = chrome.runtime.getURL('../icons/32.png');
 const container = document.querySelector('.container');
 var sortable, rows, activeId;

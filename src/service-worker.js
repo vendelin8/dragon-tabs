@@ -1,4 +1,4 @@
-const log = console.log;
+// const log = console.log;
 const keyRows = 'rows', newTabURL = 'chrome://new-tab-page/';
 let port, rows, active;
 
@@ -20,13 +20,22 @@ function setStorage() {
 	chrome.storage.local.set(valueToSet);
 }
 
+function loadLite() {
+	return Promise.all([chrome.tabs.query({active: true, lastFocusedWindow: true}), readStorage()]).then((values) => {
+		active = values[0][0];
+	});
+}
+
 function render() {
-	setStorage();
 	port.postMessage({urls: rows, activeId: active.id});
 }
 
 function removeRow(index) {
-	return rows.splice(index, 1);
+	if (index == -1) {
+		return;
+	}
+	rows.splice(index, 1);
+	setStorage();
 }
 
 const indexSort = (a, b) => a.index - b.index;
@@ -105,6 +114,7 @@ function load() {
 			}
 		}
 		rows = newrows;
+		setStorage();
 	});
 }
 
@@ -139,10 +149,9 @@ function swap(url, index) {
 	setStorage();
 }
 
-function doPop(t) {
-	const oldURL = doSwap(t.url);
-	removeRow(rows.findIndex((t2) => t2.url == oldURL));
-	setStorage();
+function doPop(row) {
+	const oldURL = doSwap(row.url);
+	removeRow(rows.findIndex((row2) => row2.url == oldURL));
 }
 
 // Changes the url of the current tab with the url of the tab at the given index.
@@ -183,7 +192,6 @@ function removeActive() {
 			chrome.tabs.remove(active.id);
 		}
 		removeRow(index);
-		setStorage();
 	});
 }
 
@@ -191,7 +199,8 @@ function drag(oldIndex, newIndex) {
 	if (newIndex == oldIndex) {
 		return;
 	}
-	rows.splice(newIndex, 0, ...removeRow(oldIndex));
+	rows.splice(newIndex, 0, rows[oldIndex]);
+	removeRow(oldIndex);
 	render();
 	const row = rows[newIndex];
 	if (!row.id) {
@@ -248,7 +257,6 @@ chrome.runtime.onConnect.addListener((p) => {
 });
 
 chrome.commands.onCommand.addListener((command) => {
-	log('Command:', command);
 	switch (command) {
 	case 'close':
 		load().then(() => {
@@ -256,12 +264,12 @@ chrome.commands.onCommand.addListener((command) => {
 		});
 		break;
 	case 'close-tab':
-		load().then(() => {
+		loadLite().then(() => {
 			removeActive();
 		});
 		break;
 	case 'pop-tab':
-		load().then(() => {
+		loadLite().then(() => {
 			pop(-1);
 		});
 		break;
