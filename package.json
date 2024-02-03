@@ -6,15 +6,13 @@
 		"build": "webpack --config webpack.config.js",
 		"package": "chromium --pack-extension=dist --pack-extension-key=$(node -p \"require('fs').existsSync('dist.pem') ? 'dist.pem' : ''\")"
 	},
- 	"devDependencies": {
+	"devDependencies": {
 		"@types/chrome": "^0.0.260",
 		"@types/sortablejs": "^1.15.7",
 		"copy-webpack-plugin": "^12.0.2",
-		"css-loader": "^6.10.0",
 		"css-minimizer-webpack-plugin": "^6.0.0",
 		"html-minimizer-webpack-plugin": "^5.0.0",
 		"mini-css-extract-plugin": "^2.8.0",
-		"path-exists-cli": "^2.0.0",
 		"terser-webpack-plugin": "^5.3.10",
 		"ts-loader": "^9.5.1",
 		"typescript": "^5.3.3",
