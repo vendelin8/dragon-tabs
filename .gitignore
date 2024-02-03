@@ -1,2 +1,7 @@
-src.pem
-src.crx
+dist
+dist.pem
+dist.crx
+node_modules
+pnpm-lock.yaml
+yarn.lock
+package-lock.json

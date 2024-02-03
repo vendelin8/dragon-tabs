@@ -1,9 +1,26 @@
+///<reference types="chrome"/>
+import { Render, Row, PopupAction, Load, Restore, Close, Pop, Swap, Remove, Drag } from './api'
+
+type Active = {
+	id: number;
+	url: string;
+}
+
 // const log = console.log;
 const keyRows = 'rows', newTabURL = 'chrome://new-tab-page/';
-let port, rows, active;
+let port: chrome.runtime.Port, rows: Row[] = [], isLoaded = false;
+const defActive: Active = {id: 0, url: ''};
+let active: Active = defActive;
+
+const RowFromTab = (t: chrome.tabs.Tab, rowIdx: number = -1): Row =>
+	({id: t.id, url: t.url??'', title: t.title, favIconUrl: t.favIconUrl,
+		index: t.index, rowIdx});
+
+const ActiveFromTab = (t: chrome.tabs.Tab): Active =>
+	({id: t.id??0, url: t.url??''});
 
 function readStorage() {
-	if (rows) {
+	if (isLoaded) {
 		return Promise.resolve();
 	}
 	return chrome.storage.local.get(keyRows).then((result) => {
@@ -11,26 +28,28 @@ function readStorage() {
 		if (!rows) {
 			rows = [];
 		}
+		isLoaded = true;
 	});
 }
 
 function setStorage() {
-	const valueToSet = {};
+	const valueToSet: any = {};
 	valueToSet[keyRows] = rows;
 	chrome.storage.local.set(valueToSet);
 }
 
 function loadLite() {
 	return Promise.all([chrome.tabs.query({active: true, lastFocusedWindow: true}), readStorage()]).then((values) => {
-		active = values[0][0];
+		active = ActiveFromTab(values[0][0]);
 	});
 }
 
 function render() {
-	port.postMessage({urls: rows, activeId: active.id});
+	const msg: Render = {rows: rows, activeId: active.id};
+	port.postMessage(msg);
 }
 
-function removeRow(index) {
+function removeRow(index: number) {
 	if (index == -1) {
 		return;
 	}
@@ -38,27 +57,28 @@ function removeRow(index) {
 	setStorage();
 }
 
-const indexSort = (a, b) => a.index - b.index;
+const indexSort = (a: chrome.tabs.Tab, b: chrome.tabs.Tab) => a.index - b.index;
 
 // Refreshes rows to initialize popup gui with. It merges saved rows with
 // active browser tabs in the most natural way of keeping orders.
 function load() {
 	return Promise.all([chrome.tabs.query({}), readStorage()]).then((values) => {
 		// sort browser tabs by index
-		const tabs = values[0].sort(indexSort);
+		const tabs: chrome.tabs.Tab[] = values[0].sort(indexSort);
 
 		// storing active tab to reuse for actions while the popup is open
-		active = tabs.find((tab) => tab.active);
+		const _activeTab = tabs.find((tab) => tab.active)
+		active = _activeTab ? ActiveFromTab(_activeTab) : defActive;
 
-		const m = {}; // map of browser tabs by url as key
-		for (let i = 0; i < tabs.length; i++) {
-			const t = tabs[i];
-			m[t.url] = {id: t.id, url: t.url, title: t.title, favIconUrl: t.favIconUrl, index: i};
+		const m: {[url: string]: Row} = {}; // map of browser tabs by url as key
+		for (let i: number = 0; i < tabs.length; i++) {
+			const t: chrome.tabs.Tab = tabs[i]!;
+			m[t.url??''] = RowFromTab(t);
 		}
 
-		const is = {}; // intersection of rows and browser tabs
-		const isList = [];
-		for (let i = 0; i < rows.length; i++) {
+		const is: {[url: string]: Row} = {}; // intersection of rows and browser tabs
+		const isList: Row[] = [];
+		for (let i: number = 0; i < rows.length; i++) {
 			const t = rows[i];
 			const url = t.url;
 			const t2 = m[url];
@@ -67,11 +87,10 @@ function load() {
 				isList.push(t2);
 			}
 		}
-		isList.sort((a, b) => a.index - b.index);
 
 		const newrows = [];
-		let listIdx = 0, tabIndex = 0, isIndex = 0;
-		let nextIs;
+		let listIdx: number = 0, tabIndex: number = 0, isIndex: number = 0;
+		let nextIs: Row | undefined;
 		if (isList.length > 0) {
 			nextIs = isList[0];
 		}
@@ -81,7 +100,7 @@ function load() {
 				listIdx++;
 				const tUrl = t.url;
 				if (is[tUrl]) { // found intersection
-					if (nextIs && nextIs.url == tUrl) {
+					if (nextIs?.url === tUrl) {
 						break;
 					}
 					// at a later position in the browser, removing
@@ -97,7 +116,7 @@ function load() {
 				newrows.push(t);
 			}
 			while (tabIndex < tabs.length) {
-				const tUrl = tabs[tabIndex].url;
+				const tUrl = tabs[tabIndex].url??'';
 				const t = m[tUrl];
 				delete t.index;
 				newrows.push(t);
@@ -110,7 +129,7 @@ function load() {
 			if (isList.length > isIndex) {
 				nextIs = isList[isIndex];
 			} else {
-				nextIs = null;
+				nextIs = undefined;
 			}
 		}
 		rows = newrows;
@@ -119,12 +138,18 @@ function load() {
 }
 
 function close() {
+	let hasChange = false;
 	chrome.tabs.remove(rows.filter((row) => row.id && row.id != active.id).map((row) => {
-		const tabId = row.id;
+		const tabId = row.id!;
+		hasChange = true;
 		delete row.id;
-		setStorage();
+		delete row.index;
 		return tabId;
-	}));
+	})).then(() => {
+		if (hasChange) {
+			setStorage();
+		}
+	});
 }
 
 function restore() {
@@ -135,28 +160,28 @@ function restore() {
 	});
 }
 
-function doSwap(url) {
+function doSwap(url: string) {
 	const oldURL = active.url;
 	chrome.tabs.update(active.id, {url});
 	return oldURL;
 }
 
 // Changes the url of the current tab with the url of the tab at the given index.
-function swap(url, index) {
-	rows[index].url = active.url;
+function swap(url: string, idx: number) {
+	rows[idx].url = active.url;
 	doSwap(url);
 	active.url = url;
 	setStorage();
 }
 
-function doPop(row) {
+function doPop(row: Row) {
 	const oldURL = doSwap(row.url);
 	removeRow(rows.findIndex((row2) => row2.url == oldURL));
 }
 
 // Changes the url of the current tab with the url of the tab at the given index.
 // Also removes the given tab from the storage.
-function pop(index) {
+function pop(index: number) {
 	if (index > -1) {
 		doPop(rows[index]);
 		return;
@@ -170,15 +195,15 @@ function pop(index) {
 	}
 }
 
-function remove(index) {
-	const row = rows[index];
+function remove(rowIdx: number) {
+	const row = rows[rowIdx];
 	if (row.url === active.url) {
-		chrome.tabs.update(row.id, {url: newTabURL});
+		chrome.tabs.update(active.id, {url: newTabURL});
 	} else {
 		if (row.id) {
 			chrome.tabs.remove(row.id);
 		}
-		removeRow(index);
+		removeRow(rowIdx);
 	}
 	render();
 }
@@ -187,7 +212,7 @@ function removeActive() {
 	const index = rows.findIndex((t) => t.id == active.id);
 	chrome.tabs.query({}).then((tabs) => {
 		if (tabs.length === 1) {
-			chrome.tabs.update(tabs[0].id, {url: newTabURL});
+			chrome.tabs.update(tabs[0]!.id!, {url: newTabURL});
 		} else {
 			chrome.tabs.remove(active.id);
 		}
@@ -195,68 +220,70 @@ function removeActive() {
 	});
 }
 
-function drag(oldIndex, newIndex) {
-	if (newIndex == oldIndex) {
+function drag(oldIdx: number, newIdx: number) {
+	if (newIdx == oldIdx) {
 		return;
 	}
-	rows.splice(newIndex, 0, rows[oldIndex]);
-	removeRow(oldIndex);
+	rows.splice(newIdx, 0, rows[oldIdx]);
+	removeRow(oldIdx);
 	render();
-	const row = rows[newIndex];
-	if (!row.id) {
+	const row = rows[newIdx]!;
+	const rowId = row.id;
+	if (!rowId) {
 		return;
 	}
-	for (let i = newIndex - 1; i > -1; i--) {
+	// move browser tab to the dragged position
+	for (let i: number = newIdx - 1; i > -1; i--) {
 		const t2 = rows[i];
-		if (t2.id) {
-			chrome.tabs.move(row.id, {index: newIndex});
+		if (t2.index !== undefined) {
+			chrome.tabs.move(rowId, {index: t2.index + 1});
 			return;
 		}
 	}
-	for (let i = newIndex + 1; i < rows.length; i++) {
+	for (let i: number = newIdx + 1; i < rows.length; i++) {
 		const t2 = rows[i];
-		if (t2.id) {
-			chrome.tabs.move(row.id, {index: t2.index});
+		if (t2.index !== undefined) {
+			chrome.tabs.move(rowId, {index: t2.index});
 			return;
 		}
 	}
 }
 
-chrome.runtime.onConnect.addListener((p) => {
+chrome.runtime.onConnect.addListener((p: chrome.runtime.Port) => {
 	if (p.name !== 'popup') {
 		return;
 	}
 	port = p;
-	p.onMessage.addListener((msg) => {
-		switch (msg.action) {
-		case 'load':
+	p.onMessage.addListener((pa: PopupAction) => {
+		switch (true) {
+		case pa instanceof Load:
 			load().then(() => {
 				render();
 			});
 			break;
-		case 'close':
-			close(msg.url);
+		case pa instanceof Close:
+			close();
 			break;
-		case 'restore':
+		case pa instanceof Restore:
 			restore();
 			break;
-		case 'pop':
-			pop(msg.index);
+		case pa instanceof Pop:
+			pop(pa.rowIdx);
 			break;
-		case 'swap':
-			swap(msg.url, msg.index);
+		case pa instanceof Swap:
+			swap(pa.url, pa.rowIdx);
 			break;
-		case 'remove':
-			remove(msg.index);
+		case pa instanceof Remove:
+			remove(pa.rowIdx);
 			break;
-		case 'drag':
-			drag(msg.oldIndex, msg.newIndex);
+		case pa instanceof Drag:
+			drag(pa.oldIdx, pa.newIdx);
 			break;
 		}
 	});
 });
 
-chrome.commands.onCommand.addListener((command) => {
+chrome.commands.onCommand.addListener((command: string) => {
 	switch (command) {
 	case 'close':
 		load().then(() => {

@@ -6,7 +6,7 @@
   "offline_enabled": true,
   "permissions": [ "storage", "tabs" ],
   "action": {
-    "default_popup": "static/index.html",
+    "default_popup": "index.html",
     "default_title": "Dragon Tabs"
   },
   "icons": {
@@ -28,6 +28,6 @@
     }
   },
   "background": {
-    "service_worker": "service-worker.js"
+    "service_worker": "background.js"
   }
 }
