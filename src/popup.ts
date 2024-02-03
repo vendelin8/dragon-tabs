@@ -1,5 +1,5 @@
 ///<reference types="chrome"/>
-import { Render, Row, PopupAction, Load, Restore, Close, Pop, Swap, Remove, Drag } from './api'
+import { Render, Row, PopupAction, Load, Restore, Close, Pop, Swap, Remove, Drag } from './models'
 import Sortable from 'sortablejs';
 
 // const log = console.log;
@@ -30,9 +30,13 @@ function postMessage(msg: PopupAction) {
 }
 
 port.onMessage.addListener(function(msg: Render) {
-	rows = msg.rows;
-	activeId = msg.activeId;
 	container.textContent = '';
+	activeId = msg.activeId;
+	if (activeId == -1) {
+		createElement('div', 'warn', container).textContent = 'Doesn\'t work in incognito mode';
+		return;
+	}
+	rows = msg.rows;
 	for (let i: number = 0; i < rows.length; i++) {
 		const row = rows[i];
 		const tabId = row.id;

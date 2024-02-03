@@ -157,3 +157,8 @@ body, .row, div {
 .pop:hover {
   background-color: #ffd000;
 }
+
+.warn {
+  font-size: 40px;
+  color: #ff3140;
+}

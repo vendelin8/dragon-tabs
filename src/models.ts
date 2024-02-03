@@ -7,11 +7,24 @@ export type Row = {
 	rowIdx: number;
 }
 
-export class Load {};
-export class Restore {};
-export class Close {};
+export interface PopupAction {
+	kind: string;
+}
 
-export class Pop {
+export class Load implements PopupAction {
+	kind = 'load';
+};
+
+export class Restore implements PopupAction {
+	kind = 'restore';
+};
+
+export class Close implements PopupAction {
+	kind = 'close';
+};
+
+export class Pop implements PopupAction {
+	kind = 'pop';
 	rowIdx: number;
 
 	constructor(rowIdx: number) {
@@ -19,7 +32,8 @@ export class Pop {
 	}
 }
 
-export class Swap {
+export class Swap implements PopupAction {
+	kind = 'swap';
 	url: string;
 	rowIdx: number;
 
@@ -29,7 +43,8 @@ export class Swap {
 	}
 }
 
-export class Remove {
+export class Remove implements PopupAction {
+	kind = 'remove';
 	rowIdx: number;
 
 	constructor(rowIdx: number) {
@@ -37,7 +52,8 @@ export class Remove {
 	}
 }
 
-export class Drag {
+export class Drag implements PopupAction {
+	kind = 'drag';
 	oldIdx: number;
 	newIdx: number;
 
@@ -47,9 +63,7 @@ export class Drag {
 	}
 }
 
-export type PopupAction = Load | Restore | Close | Pop | Swap | Remove | Drag;
-
 export type Render = {
-	rows: Row[],
-	activeId: number
+	rows: Row[];
+	activeId: number;
 }

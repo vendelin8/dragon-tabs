@@ -1,5 +1,5 @@
 ///<reference types="chrome"/>
-import { Render, Row, PopupAction, Load, Restore, Close, Pop, Swap, Remove, Drag } from './api'
+import { Render, Row, PopupAction, Load, Restore, Close, Pop, Swap, Remove, Drag } from './models'
 
 type Active = {
 	id: number;
@@ -38,15 +38,22 @@ function setStorage() {
 	chrome.storage.local.set(valueToSet);
 }
 
-function loadLite() {
+function loadLite(): Promise<boolean> {
 	return Promise.all([chrome.tabs.query({active: true, lastFocusedWindow: true}), readStorage()]).then((values) => {
-		active = ActiveFromTab(values[0][0]);
+		const t0 = values[0][0];
+		active = ActiveFromTab(t0);
+		if (t0.incognito) {
+			return false;
+		}
+		return true;
 	});
 }
 
-function render() {
-	const msg: Render = {rows: rows, activeId: active.id};
-	port.postMessage(msg);
+export const renderContent = (normal: boolean): Render =>
+	normal ? {rows: rows, activeId: active.id} : {rows: [], activeId: -1};
+
+function render(normal: boolean = true) {
+	port.postMessage(renderContent(normal));
 }
 
 function removeRow(index: number) {
@@ -61,8 +68,11 @@ const indexSort = (a: chrome.tabs.Tab, b: chrome.tabs.Tab) => a.index - b.index;
 
 // Refreshes rows to initialize popup gui with. It merges saved rows with
 // active browser tabs in the most natural way of keeping orders.
-function load() {
+export function load(): Promise<boolean> {
 	return Promise.all([chrome.tabs.query({}), readStorage()]).then((values) => {
+		if (values[0][0].incognito) {
+			return false;
+		}
 		// sort browser tabs by index
 		const tabs: chrome.tabs.Tab[] = values[0].sort(indexSort);
 
@@ -134,6 +144,7 @@ function load() {
 		}
 		rows = newrows;
 		setStorage();
+		return true;
 	});
 }
 
@@ -208,7 +219,11 @@ function remove(rowIdx: number) {
 	render();
 }
 
-function removeActive() {
+function removeActive(normal: boolean) {
+	if (!normal) { // incognito, don't care about tabs
+		chrome.tabs.remove(active.id);
+		return;
+	}
 	const index = rows.findIndex((t) => t.id == active.id);
 	chrome.tabs.query({}).then((tabs) => {
 		if (tabs.length === 1) {
@@ -255,29 +270,31 @@ chrome.runtime.onConnect.addListener((p: chrome.runtime.Port) => {
 	}
 	port = p;
 	p.onMessage.addListener((pa: PopupAction) => {
-		switch (true) {
-		case pa instanceof Load:
-			load().then(() => {
-				render();
+		switch (pa.kind) {
+		case 'load':
+			load().then((normal: boolean) => {
+				render(normal);
 			});
 			break;
-		case pa instanceof Close:
+		case 'close':
 			close();
 			break;
-		case pa instanceof Restore:
+		case 'restore':
 			restore();
 			break;
-		case pa instanceof Pop:
-			pop(pa.rowIdx);
+		case 'pop':
+			pop((<Pop>pa).rowIdx);
 			break;
-		case pa instanceof Swap:
-			swap(pa.url, pa.rowIdx);
+		case 'swap':
+			const pas = <Swap>pa;
+			swap(pas.url, pas.rowIdx);
 			break;
-		case pa instanceof Remove:
-			remove(pa.rowIdx);
+		case 'remove':
+			remove((<Remove>pa).rowIdx);
 			break;
-		case pa instanceof Drag:
-			drag(pa.oldIdx, pa.newIdx);
+		case 'drag':
+			const pad = <Drag>pa;
+			drag(pad.oldIdx, pad.newIdx);
 			break;
 		}
 	});
@@ -286,18 +303,22 @@ chrome.runtime.onConnect.addListener((p: chrome.runtime.Port) => {
 chrome.commands.onCommand.addListener((command: string) => {
 	switch (command) {
 	case 'close':
-		load().then(() => {
-			close();
+		load().then((normal: boolean) => {
+			if (normal) {
+				close();
+			}
 		});
 		break;
 	case 'close-tab':
-		loadLite().then(() => {
-			removeActive();
+		loadLite().then((normal: boolean) => {
+			removeActive(normal);
 		});
 		break;
 	case 'pop-tab':
-		loadLite().then(() => {
-			pop(-1);
+		loadLite().then((normal: boolean) => {
+			if (normal) {
+				pop(-1);
+			}
 		});
 		break;
 	}
