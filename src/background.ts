@@ -6,7 +6,7 @@ type Active = {
 	url: string;
 }
 
-// const log = console.log;
+const log = console.log;
 const keyRows = 'rows', newTabURL = 'chrome://new-tab-page/';
 let port: chrome.runtime.Port, rows: Row[] = [], isLoaded = false;
 const defActive: Active = {id: 0, url: ''};
@@ -38,9 +38,11 @@ function setStorage() {
 	chrome.storage.local.set(valueToSet);
 }
 
+const queryActiveTab = (): Promise<chrome.tabs.Tab> => chrome.tabs.query({active: true, lastFocusedWindow: true}).then((tabs) => tabs[0])
+
 function loadLite(): Promise<boolean> {
-	return Promise.all([chrome.tabs.query({active: true, lastFocusedWindow: true}), readStorage()]).then((values) => {
-		const t0 = values[0][0];
+	return Promise.all([queryActiveTab(), readStorage()]).then((values) => {
+		const t0 = values[0];
 		active = ActiveFromTab(t0);
 		if (t0.incognito) {
 			return false;
@@ -49,11 +51,9 @@ function loadLite(): Promise<boolean> {
 	});
 }
 
-export const renderContent = (normal: boolean): Render =>
-	normal ? {rows: rows, activeId: active.id} : {rows: [], activeId: -1};
-
+// Rendering rows in popup except for incognito window.
 function render(normal: boolean = true) {
-	port.postMessage(renderContent(normal));
+	port.postMessage(normal ? {rows: rows, activeId: active.id} : {rows: [], activeId: -1});
 }
 
 function removeRow(index: number) {
@@ -220,8 +220,13 @@ function remove(rowIdx: number) {
 }
 
 function removeActive(normal: boolean) {
+	log('removeActive', normal);
 	if (!normal) { // incognito, don't care about tabs
-		chrome.tabs.remove(active.id);
+		queryActiveTab().then((activeTab: chrome.tabs.Tab) => {
+			log('removeActive tab', activeTab, activeTab.id);
+			chrome.tabs.remove(activeTab.id!);
+			log('removeActive done');
+		});
 		return;
 	}
 	const index = rows.findIndex((t) => t.id == active.id);

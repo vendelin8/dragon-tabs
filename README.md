@@ -23,7 +23,7 @@ When you open the extension popup by clicking on the dragon, you get 2 buttons o
   * clicking on the <img title="bin" src="public/img/delete.png" width="30" height="30"/> icon removes the tab from the browser and the saved tabs
 * actions only for the active tab:
   * the <img title="empty document" src="public/img/new.png" width="30" height="30"/> icon replaces the current tab with a new blank one, removing the tab from the saved tabs
-  * a settable keyboard shortcut in chrome://extensions/shortcuts may be added to close the current tab AND remove it from the saved ones. You can even override the current close tab shortcut (Ctrl+W on linux and windows)
+  * a settable keyboard shortcut in chrome://extensions/shortcuts may be added to close the current tab AND remove it from the saved ones. You can even override the current close tab shortcut (Ctrl+W on linux and windows). But if you do that, and want to use incognito windows as well, you have to enable the extension in incognito mode too. Otherwise the shortcut will block you from closing tabs.
 * actions only for closed tabs:
   * clicking on the title line opens it
   * clicking on the <img title="swap" src="public/img/swap.png" width="30" height="30"/> icon replaces the url of the active browser tab with the url of the chosen one
