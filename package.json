@@ -1,7 +1,4 @@
 {
-	"config": {
-		"key": "require('fs').existsSync('dist.pem') ? 'dist.pem' : ''"
-	},
 	"scripts": {
 		"build": "webpack --config webpack.config.js",
 		"package": "chromium --pack-extension=dist --pack-extension-key=$(node -p \"require('fs').existsSync('dist.pem') ? 'dist.pem' : ''\")"
