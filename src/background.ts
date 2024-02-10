@@ -12,12 +12,13 @@ let port: chrome.runtime.Port, rows: Row[] = [], isLoaded = false;
 const defActive: Active = {id: 0, url: ''};
 let active: Active = defActive;
 
+const ActiveFromTab = (t: chrome.tabs.Tab): Active => ({id: t.id??0, url: t.url??''});
+const activeIndex = (): number => rows.findIndex((t) => t.id == active.id);
+const queryActiveTab = (): Promise<chrome.tabs.Tab> => chrome.tabs.query({active: true, lastFocusedWindow: true}).then((tabs) => tabs[0])
+
 const RowFromTab = (t: chrome.tabs.Tab, rowIdx: number = -1): Row =>
 	({id: t.id, url: t.url??'', title: t.title, favIconUrl: t.favIconUrl,
 		index: t.index, rowIdx});
-
-const ActiveFromTab = (t: chrome.tabs.Tab): Active =>
-	({id: t.id??0, url: t.url??''});
 
 function readStorage() {
 	if (isLoaded) {
@@ -37,8 +38,6 @@ function setStorage() {
 	valueToSet[keyRows] = rows;
 	chrome.storage.local.set(valueToSet);
 }
-
-const queryActiveTab = (): Promise<chrome.tabs.Tab> => chrome.tabs.query({active: true, lastFocusedWindow: true}).then((tabs) => tabs[0])
 
 function loadLite(): Promise<boolean> {
 	return Promise.all([queryActiveTab(), readStorage()]).then((values) => {
@@ -64,8 +63,6 @@ function removeRow(index: number) {
 	setStorage();
 }
 
-const indexSort = (a: chrome.tabs.Tab, b: chrome.tabs.Tab) => a.index - b.index;
-
 // Refreshes rows to initialize popup gui with. It merges saved rows with
 // active browser tabs in the most natural way of keeping orders.
 export function load(): Promise<boolean> {
@@ -74,7 +71,7 @@ export function load(): Promise<boolean> {
 			return false;
 		}
 		// sort browser tabs by index
-		const tabs: chrome.tabs.Tab[] = values[0].sort(indexSort);
+		const tabs: chrome.tabs.Tab[] = values[0].sort((a: chrome.tabs.Tab, b: chrome.tabs.Tab) => a.index - b.index);
 
 		// storing active tab to reuse for actions while the popup is open
 		const _activeTab = tabs.find((tab) => tab.active)
@@ -171,17 +168,19 @@ function restore() {
 	});
 }
 
+// Changes url of the active browser tab to the given value, and returns old one.
 function doSwap(url: string) {
 	const oldURL = active.url;
 	chrome.tabs.update(active.id, {url});
+	active.url = url;
 	return oldURL;
 }
 
-// Changes the url of the current tab with the url of the tab at the given index.
+// Opens the given url in the active browser tab, and changes its index with the activ index.
 function swap(url: string, idx: number) {
-	rows[idx].url = active.url;
 	doSwap(url);
-	active.url = url;
+	const idx2 = activeIndex();
+	[rows[idx], rows[idx2]] = [rows[idx2], rows[idx]];
 	setStorage();
 }
 
@@ -229,7 +228,7 @@ function removeActive(normal: boolean) {
 		});
 		return;
 	}
-	const index = rows.findIndex((t) => t.id == active.id);
+	const index = activeIndex();
 	chrome.tabs.query({}).then((tabs) => {
 		if (tabs.length === 1) {
 			chrome.tabs.update(tabs[0]!.id!, {url: newTabURL});
