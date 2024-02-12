@@ -6,7 +6,7 @@ type Active = {
 	url: string;
 }
 
-const log = console.log;
+// const log = console.log;
 const keyRows = 'rows', newTabURL = 'chrome://new-tab-page/';
 let port: chrome.runtime.Port, rows: Row[] = [], isLoaded = false;
 const defActive: Active = {id: 0, url: ''};
@@ -169,23 +169,27 @@ function restore() {
 }
 
 // Changes url of the active browser tab to the given value, and returns old one.
-function doSwap(url: string) {
+function doSwap(url: string, newRow: Row, oldRow?: Row | null) {
 	const oldURL = active.url;
 	chrome.tabs.update(active.id, {url});
 	active.url = url;
+	newRow.id = active.id;
+	if (oldRow) {
+		oldRow.id = undefined;
+	}
 	return oldURL;
 }
 
 // Opens the given url in the active browser tab, and changes its index with the activ index.
 function swap(url: string, idx: number) {
-	doSwap(url);
 	const idx2 = activeIndex();
+	doSwap(url, rows[idx], rows[idx2]);
 	[rows[idx], rows[idx2]] = [rows[idx2], rows[idx]];
 	setStorage();
 }
 
 function doPop(row: Row) {
-	const oldURL = doSwap(row.url);
+	const oldURL = doSwap(row.url, row);
 	removeRow(rows.findIndex((row2) => row2.url == oldURL));
 }
 
@@ -219,12 +223,9 @@ function remove(rowIdx: number) {
 }
 
 function removeActive(normal: boolean) {
-	log('removeActive', normal);
 	if (!normal) { // incognito, don't care about tabs
 		queryActiveTab().then((activeTab: chrome.tabs.Tab) => {
-			log('removeActive tab', activeTab, activeTab.id);
 			chrome.tabs.remove(activeTab.id!);
-			log('removeActive done');
 		});
 		return;
 	}
