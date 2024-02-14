@@ -147,13 +147,17 @@ export function load(): Promise<boolean> {
 
 function close() {
 	let hasChange = false;
-	chrome.tabs.remove(rows.filter((row) => row.id && row.id != active.id).map((row) => {
+	const tabIds = rows.filter((row) => row.id && row.id != active.id).map((row) => {
 		const tabId = row.id!;
 		hasChange = true;
 		delete row.id;
 		delete row.index;
 		return tabId;
-	})).then(() => {
+	});
+	if (tabIds.length == 0) {
+		return;
+	}
+	chrome.tabs.remove(tabIds).then(() => {
 		if (hasChange) {
 			setStorage();
 		}
@@ -244,8 +248,8 @@ function drag(oldIdx: number, newIdx: number) {
 	if (newIdx == oldIdx) {
 		return;
 	}
-	rows.splice(newIdx, 0, rows[oldIdx]);
-	removeRow(oldIdx);
+	rows.splice(newIdx < oldIdx ? newIdx : newIdx+1, 0, rows[oldIdx]);
+	removeRow(newIdx < oldIdx ? oldIdx+1 : oldIdx);
 	render();
 	const row = rows[newIdx]!;
 	const rowId = row.id;
